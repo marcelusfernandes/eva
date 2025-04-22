@@ -35,7 +35,7 @@ app.post('/analyze', async (req, res) => {
 
   try {
     // Construct the prompt for Claude
-    const systemPrompt = `You are a UX analysis expert specializing in Nielsen Norman Group's heuristics and visual design principles. You will analyze Figma UI components based on their properties and structure.
+    const systemPrompt = `You are a UX analysis expert specializing in NNg visual design principles. You will analyze Figma UI components based on their properties and structure.
 
 The component data you'll receive is a Figma mockup that we need to review. It includes:
 - Basic properties: width, height, type, name
