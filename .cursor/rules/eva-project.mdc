@@ -1,0 +1,57 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+
+# Your rule content
+
+Cursor Rules – Plugin Development for UI Evaluation with Anthropic Claude (Figma)
+Project Context
+This is a Figma plugin that uses Anthropic's Claude API to analyze selected UI elements and return constructive feedback.
+
+The goal is to assist designers with UX quality checks, content critiques, and accessibility hints—without replacing their judgment.
+
+📌 General Guidelines
+Always assume Figma’s API is being used in a plugin context.
+
+Assume figma.currentPage.selection provides access to selected elements.
+
+Keep plugin UI minimal. Feedback will appear in a floating side panel or annotations.
+
+Use Claude Instant for speed or Claude Opus for higher-quality analysis.
+
+🛠️ Development Rules
+1. Plugin Setup
+Use manifest.json compatible with Figma Plugin API v1.
+
+The UI should load in an iframe panel using ui.html.
+Backend logic should run in code.ts.
+Listed links as the source of information to provide de analysis
+
+2. Claude API Integration
+Use Anthropic's REST API (via fetch) from the plugin.
+
+Format prompts using a system message that defines UX critique style.
+
+Chunk UI data (e.g., text content, button labels, font size, hierarchy) as JSON when sending.
+
+3. DesignEvaluation Logic
+Base evaluations on Visual design principles
+- https://www.nngroup.com/articles/principles-visual-design/
+- https://www.nngroup.com/articles/why-does-design-look-good/
+- https://www.nngroup.com/articles/golden-ratio-ui-design/
+- https://www.nngroup.com/articles/principle-closure/
+- https://www.nngroup.com/articles/common-region/?lm=gestalt-similarity&pt=article
+- https://www.nngroup.com/articles/gestalt-proximity/?lm=gestalt-similarity&pt=article
+- https://www.nngroup.com/articles/gestalt-similarity/
+- https://www.nngroup.com/videos/scale-visual-principle/
+- https://www.nngroup.com/videos/visual-principle-contrast/
+- https://www.nngroup.com/articles/visual-hierarchy-ux-definition/
+
+Aesthetic and minimalist design
+Help users recognize, diagnose, and recover from errors
+Help and documentation
+Ask Claude to identify issues based on these.
+Response format should be structured with heuristic violated, description, and suggestion.
+

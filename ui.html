@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>EVA - UX Analyzer</title>
+  <style>
+    body { font-family: sans-serif; padding: 10px; }
+    .card { border: 1px solid #ccc; border-radius: 4px; padding: 10px; margin-bottom: 10px; }
+    button { margin-top: 10px; }
+    .error { background-color: #ffe6e6; border-color: #ff9999; }
+    .info { background-color: #e6f3ff; border-color: #99ccff; }
+  </style>
+</head>
+<body>
+  <h2>EVA - UX Analyzer</h2>
+
+  <div id="selection-info">
+    <p>Selected Frame: <strong id="frame-name">None</strong></p>
+    <p>Hierarchy: <span id="frame-hierarchy">N/A</span></p>
+  </div>
+
+  <button id="analyze-button">Analyze</button>
+
+  <hr>
+
+  <h3>Analysis Results</h3>
+  <div id="results"></div>
+
+  <script>
+    // UI Elements
+    const analyzeButton = document.getElementById('analyze-button');
+    const frameNameEl = document.getElementById('frame-name');
+    const frameHierarchyEl = document.getElementById('frame-hierarchy');
+    const resultsDiv = document.getElementById('results');
+
+    // Event Listeners
+    analyzeButton.onclick = () => {
+        parent.postMessage({ pluginMessage: { type: 'analyze' } }, '*');
+        analyzeButton.disabled = true;
+        analyzeButton.textContent = 'Analyzing...';
+    };
+
+    // Message Handler
+    window.onmessage = (event) => {
+        const msg = event.data.pluginMessage;
+
+        if (msg.type === 'selection-info') {
+            frameNameEl.textContent = msg.data.name;
+            frameHierarchyEl.textContent = msg.data.hierarchy;
+            analyzeButton.disabled = msg.data.name === 'None' || msg.data.name === 'Multiple Selected' || msg.data.name === 'No Parent Frame';
+        }
+
+        if (msg.type === 'analysis-result') {
+            // Create and append a new card for this result
+            const card = document.createElement('div');
+            card.className = 'card';
+            
+            const heuristic = document.createElement('h4');
+            heuristic.textContent = msg.data.heuristic;
+            card.appendChild(heuristic);
+
+            const issue = document.createElement('p');
+            issue.innerHTML = `<strong>Issue:</strong> ${msg.data.issue}`;
+            card.appendChild(issue);
+
+            const suggestion = document.createElement('p');
+            suggestion.innerHTML = `<strong>Suggestion:</strong> ${msg.data.suggestion}`;
+            card.appendChild(suggestion);
+
+            const showButton = document.createElement('button');
+            showButton.textContent = 'Show on Canvas';
+            showButton.onclick = () => {
+                parent.postMessage({ 
+                    pluginMessage: { 
+                        type: 'show-on-canvas',
+                        payload: msg.data
+                    }
+                }, '*');
+            };
+            card.appendChild(showButton);
+
+            resultsDiv.appendChild(card);
+        }
+
+        if (msg.type === 'analysis-complete' || msg.type === 'analysis-error' || msg.type === 'analysis-no-results') {
+            analyzeButton.disabled = false;
+            analyzeButton.textContent = 'Analyze';
+        }
+
+        if (msg.type === 'analysis-error') {
+            const errorCard = document.createElement('div');
+            errorCard.className = 'card error';
+            errorCard.textContent = `Error: ${msg.data.message}`;
+            resultsDiv.appendChild(errorCard);
+        }
+
+        if (msg.type === 'analysis-no-results') {
+            const noResultsCard = document.createElement('div');
+            noResultsCard.className = 'card info';
+            noResultsCard.textContent = 'No issues found. The component follows good UX principles!';
+            resultsDiv.appendChild(noResultsCard);
+        }
+    };
+
+    // Request initial selection info when UI loads
+    parent.postMessage({ pluginMessage: { type: 'get-initial-selection' } }, '*');
+  </script>
+</body>
+</html>

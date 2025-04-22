@@ -1,0 +1,20 @@
+{
+  "name": "eva",
+  "id": "1496515034295865026",
+  "api": "1.0.0",
+  "main": "dist/code.js",
+  "capabilities": [],
+  "enableProposedApi": false,
+  "documentAccess": "dynamic-page",
+  "editorType": [
+    "figma"
+  ],
+  "ui": "ui.html",
+  "networkAccess": {
+    "allowedDomains": ["none"],
+    "devAllowedDomains": [
+      "http://localhost:3000"
+    ],
+    "reasoning": "Allows the plugin to communicate with a local Node.js server during development to securely proxy requests to the Anthropic API for UX analysis."
+  }
+}

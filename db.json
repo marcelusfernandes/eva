@@ -1,0 +1,50 @@
+{
+  "principles": [
+    {
+      "name": "Visual Principle: Scale",
+      "url": "https://www.nngroup.com/articles/principles-visual-design/",
+      "summary": "Scale is used to signal importance and establish a clear visual hierarchy. Larger elements draw more attention and guide users to key content."
+    },
+    {
+      "name": "Visual Principle: Visual Hierarchy",
+      "url": "https://www.nngroup.com/articles/principles-visual-design/",
+      "summary": "Visual hierarchy determines the order in which users process information by manipulating layout, size, color, and contrast."
+    },
+    {
+      "name": "Visual Principle: Balance",
+      "url": "https://www.nngroup.com/articles/principles-visual-design/",
+      "summary": "Balance ensures a visually stable layout by distributing visual weight evenly, whether symmetrically or asymmetrically."
+    },
+    {
+      "name": "Visual Principle: Contrast",
+      "url": "https://www.nngroup.com/articles/principles-visual-design/",
+      "summary": "Contrast helps differentiate elements through variations in color, size, shape, and weight, increasing clarity and usability."
+    },
+    {
+      "name": "Visual Principle: Gestalt Principles",
+      "url": "https://www.nngroup.com/articles/principles-visual-design/",
+      "summary": "Gestalt principles like proximity, similarity, and closure help users perceive structure and relationships between UI elements."
+    },
+    {
+      "name": "Design Principle: Typography and Spacing",
+      "url": "https://www.nngroup.com/articles/why-does-design-look-good/",
+      "summary": "Consistent typography and deliberate use of white space improve readability and aesthetic appeal. Grids, padding, and font variants should be applied with intention."
+    },
+    {
+      "name": "Design Principle: Alignment and Grid Use",
+      "url": "https://www.nngroup.com/articles/why-does-design-look-good/",
+      "summary": "Using a column grid and consistent alignment helps create a polished and organized layout that supports readability and scannability."
+    },
+    {
+      "name": "Design Principle: Color Palette Refinement",
+      "url": "https://www.nngroup.com/articles/why-does-design-look-good/",
+      "summary": "A restrained and intentional color palette strengthens branding, improves readability, and contributes to a visually refined design."
+    },
+    {
+      "name": "Design Principle: Clear Visual Hierarchy",
+      "url": "https://www.nngroup.com/articles/why-does-design-look-good/",
+      "summary": "Visual hierarchy directs user attention to the most important content first, typically using size, weight, color, and layout structure."
+    }
+  ],
+  "rules_prompt_segment": "Based on the principles above, analyze the component for potential issues related to: visual hierarchy, contrast, scale, similarity, proximity, closure, common region, golden ratio, aesthetic and minimalist design, typography, spacing, grid alignment, and color refinement."
+}
