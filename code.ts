@@ -8,19 +8,6 @@ interface AnalysisResult {
 }
 
 // Define the structure for component data
-interface ComponentData {
-  id: string;
-  name: string;
-  type: string;
-  width: number;
-  height: number;
-  childrenCount: number;
-  children: LayerData[];
-  layoutMode: string | null;
-  padding?: { top: number; right: number; bottom: number; left: number };
-  itemSpacing?: number;
-}
-
 interface LayerData {
   id: string;
   name: string;
@@ -30,12 +17,25 @@ interface LayerData {
   x: number;
   y: number;
   visible: boolean;
+  opacity?: number;
+  children: LayerData[];
   characters?: string;
   fontSize?: number;
   fontName?: FontName;
   fills?: Paint[];
   strokes?: Paint[];
-  opacity?: number;
+  layoutMode?: string;
+  padding?: { top: number; right: number; bottom: number; left: number };
+  itemSpacing?: number;
+  constraints?: Constraints;
+  layoutAlign?: string;
+}
+
+interface ComponentData extends LayerData {
+  layoutMode: string;
+  childrenCount: number;
+  padding?: { top: number; right: number; bottom: number; left: number };
+  itemSpacing?: number;
 }
 
 const SERVER_URL = 'http://localhost:3000/analyze';
@@ -92,35 +92,70 @@ async function analyzeComponentWithClaude(componentData: ComponentData, principl
 
 // Option 2: Define the principles string directly or load differently if static import is not set up
 // Note: You'll need to manually copy the 'rules_prompt_segment' from db.json here if not using static import.
-const principlesPromptSegment = "Based on the principles [...list from db.json...], analyze the component for potential issues related to: visual hierarchy, contrast, scale, similarity, proximity, closure, common region, golden ratio, aesthetic and minimalist design, error prevention/recovery, and help/documentation access."; // Replace [...] with actual content
+const principlesPromptSegment = `You are a UX analysis expert specializing in NNg visual design principles. You will analyze Figma UI components based on their properties and structure.
+
+The component data you'll receive is a Figma mockup that we need to review. It includes:
+- Basic properties: width, height, type, name
+- Layout information: layoutMode (AUTO_LAYOUT or NONE), padding, itemSpacing
+- Children elements with their properties:
+  * Position (x, y)
+  * Dimensions (width, height)
+  * Text content and styling (for text elements)
+  * Visual properties (fills, strokes, opacity)
+  * Visibility state
+  * Hierarchy and nesting
+
+When analyzing, consider:
+1. Visual Hierarchy:
+   - Size relationships between elements
+   - Spacing and positioning
+   - Text hierarchy (if present)
+   - Use of color and contrast
+
+2. Layout Principles:
+   - Proximity between related elements
+   - Alignment and distribution
+   - Use of padding and margins
+   - Responsive behavior (based on AUTO_LAYOUT)
+
+3. Typography (for text elements):
+   - Font size appropriateness
+   - Text readability
+   - Heading vs body text distinction
+
+4. Interactive Elements:
+   - Visibility of clickable areas
+   - Spacing for touch targets
+   - State indicators
+
+5. Accessibility:
+   - Color contrast
+   - Text size legibility
+   - Element spacing for usability
+
+Analyze the component ignoring hidden layers and provide specific, actionable feedback. Focus on concrete issues in the provided component, not generic advice.
+
+Respond ONLY with a JSON array of objects, where each object has:
+- 'heuristic': The specific principle being violated
+- 'issue': The exact problem found in this component and the layer name only.
+- 'suggestion': A specific, implementable solution
+
+Example: [
+  {
+    "heuristic": "Visual Hierarchy - Text Contrast",
+    "issue": "The text element at (x: 24, y: 45) uses a light gray (#CCCCCC) on white background, making it hard to read",
+    "suggestion": "Increase the contrast by using a darker gray (at least #666666) for this specific text element"
+  }
+]`;
 
 // This shows the HTML page in "ui.html".
 figma.showUI(__html__, { width: 300, height: 450 }); // Adjust size as needed
 
-let currentSelectedFrame: FrameNode | null = null;
+let currentSelection: SceneNode | null = null;
 
 // --- Helper Functions ---
 
-function findParentFrame(node: SceneNode | null): FrameNode | null {
-  if (!node) return null;
-  let parent = node.parent;
-  while (parent) {
-    if (parent.type === 'FRAME') {
-      return parent as FrameNode;
-    }
-    if (parent.type === 'PAGE') {
-      // Reached the page level without finding a frame, maybe the node itself is a top-level frame?
-      if (node.type === 'FRAME') return node;
-      return null;
-    }
-    parent = parent.parent;
-  }
-   // If the node itself is a Frame and has no parent Frame above it
-  if (node.type === 'FRAME') return node;
-  return null;
-}
-
-function getFrameHierarchy(node: SceneNode): string {
+function getNodeHierarchy(node: SceneNode): string {
     const path: string[] = [];
     let current: BaseNode | null = node;
     while (current && current.type !== 'PAGE') {
@@ -130,8 +165,8 @@ function getFrameHierarchy(node: SceneNode): string {
     return path.join(' > ');
 }
 
-function extractComponentData(frame: FrameNode): ComponentData {
-  // Extract children data recursively
+function extractComponentData(node: SceneNode): ComponentData {
+  // Extract children data recursively with better type handling
   const extractLayerData = (node: SceneNode): LayerData => {
     const baseData: LayerData = {
       id: node.id,
@@ -141,7 +176,8 @@ function extractComponentData(frame: FrameNode): ComponentData {
       height: 'height' in node ? node.height : 0,
       x: node.x,
       y: node.y,
-      visible: node.visible
+      visible: node.visible,
+      children: []  // Initialize empty children array
     };
 
     // Add opacity if available
@@ -149,16 +185,42 @@ function extractComponentData(frame: FrameNode): ComponentData {
       baseData.opacity = node.opacity;
     }
 
-    // Add text-specific properties
-    if (node.type === 'TEXT') {
-      const textNode = node as TextNode;
-      if (textNode.fontSize !== figma.mixed) {
-        baseData.fontSize = textNode.fontSize;
-      }
-      if (textNode.fontName !== figma.mixed) {
-        baseData.fontName = textNode.fontName;
-      }
-      baseData.characters = textNode.characters;
+    // Handle different node types
+    switch (node.type) {
+      case 'TEXT':
+        const textNode = node as TextNode;
+        baseData.characters = textNode.characters;
+        if (textNode.fontSize !== figma.mixed) {
+          baseData.fontSize = textNode.fontSize;
+        }
+        if (textNode.fontName !== figma.mixed) {
+          baseData.fontName = textNode.fontName;
+        }
+        break;
+
+      case 'FRAME':
+      case 'GROUP':
+      case 'COMPONENT':
+      case 'COMPONENT_SET':
+      case 'INSTANCE':
+        const containerNode = node as FrameNode | GroupNode | ComponentNode | ComponentSetNode | InstanceNode;
+        if ('layoutMode' in containerNode) {
+          baseData.layoutMode = containerNode.layoutMode;
+          if (containerNode.layoutMode !== "NONE") {
+            baseData.padding = {
+              top: containerNode.paddingTop,
+              right: containerNode.paddingRight,
+              bottom: containerNode.paddingBottom,
+              left: containerNode.paddingLeft
+            };
+            baseData.itemSpacing = containerNode.itemSpacing;
+          }
+        }
+        // Recursively process children
+        if ('children' in containerNode) {
+          baseData.children = containerNode.children.map(child => extractLayerData(child));
+        }
+        break;
     }
 
     // Add style properties if available
@@ -175,59 +237,120 @@ function extractComponentData(frame: FrameNode): ComponentData {
       }
     }
 
+    // Add constraints and layout properties if available
+    if ('constraints' in node) {
+      baseData.constraints = (node as ConstraintMixin).constraints;
+    }
+    if ('layoutAlign' in node) {
+      baseData.layoutAlign = (node as LayoutMixin).layoutAlign;
+    }
+
     return baseData;
   };
 
-  // Get padding if it exists
-  const padding = frame.layoutMode !== "NONE" ? {
-    top: frame.paddingTop,
-    right: frame.paddingRight,
-    bottom: frame.paddingBottom,
-    left: frame.paddingLeft
-  } : undefined;
-
-  // Extract data for the frame and all its children
-  return {
-    id: frame.id,
-    name: frame.name,
-    type: frame.type,
-    width: frame.width,
-    height: frame.height,
-    childrenCount: frame.children.length,
-    children: frame.children.map(child => extractLayerData(child)),
-    layoutMode: frame.layoutMode,
-    padding: padding,
-    itemSpacing: frame.layoutMode !== "NONE" ? frame.itemSpacing : undefined
+  // Start with the node itself
+  const baseData = extractLayerData(node);
+  
+  // Convert to ComponentData
+  const componentData: ComponentData = {
+    ...baseData,
+    layoutMode: 'layoutMode' in node ? (node as FrameNode).layoutMode : 'NONE',
+    childrenCount: 'children' in node ? (node as FrameNode).children.length : 0
   };
+
+  // Add layout properties if available
+  if ('layoutMode' in node && node.layoutMode !== "NONE") {
+    componentData.padding = {
+      top: (node as FrameNode).paddingTop,
+      right: (node as FrameNode).paddingRight,
+      bottom: (node as FrameNode).paddingBottom,
+      left: (node as FrameNode).paddingLeft
+    };
+    componentData.itemSpacing = (node as FrameNode).itemSpacing;
+  }
+
+  return componentData;
+}
+
+async function getFramePreview(node: SceneNode): Promise<string | null> {
+  try {
+    // Check if the node is cloneable
+    if (!('clone' in node)) {
+      console.error('Node type does not support cloning');
+      return null;
+    }
+
+    // Create a clone of the node
+    const clone = node.clone();
+    
+    // Set max dimensions for the preview
+    const MAX_SIZE = 300;
+    const scale = Math.min(MAX_SIZE / clone.width, MAX_SIZE / clone.height);
+    
+    // Export the image
+    const bytes = await clone.exportAsync({
+      format: 'PNG',
+      constraint: {
+        type: 'SCALE',
+        value: scale
+      }
+    });
+
+    // Convert to base64
+    const base64 = figma.base64Encode(bytes);
+    
+    // Clean up the clone
+    clone.remove();
+    
+    return `data:image/png;base64,${base64}`;
+  } catch (error) {
+    console.error('Error generating preview:', error);
+    return null;
+  }
 }
 
 async function updateSelectionInfo() {
     const selection = figma.currentPage.selection;
     if (selection.length === 0) {
-        currentSelectedFrame = null;
-        figma.ui.postMessage({ type: 'selection-info', data: { name: 'None', hierarchy: 'N/A' } });
+        currentSelection = null;
+        figma.ui.postMessage({ 
+          type: 'selection-info', 
+          data: { 
+            name: 'None', 
+            hierarchy: 'N/A',
+            preview: null 
+          } 
+        });
         return;
     }
 
     if (selection.length > 1) {
-        currentSelectedFrame = null;
+        currentSelection = null;
         figma.notify('Please select only one element.', { error: true });
-        figma.ui.postMessage({ type: 'selection-info', data: { name: 'Multiple Selected', hierarchy: 'N/A' } });
+        figma.ui.postMessage({ 
+          type: 'selection-info', 
+          data: { 
+            name: 'Multiple Selected', 
+            hierarchy: 'N/A',
+            preview: null 
+          } 
+        });
         return;
     }
 
     const selectedNode = selection[0];
-    const parentFrame = findParentFrame(selectedNode);
-
-    if (parentFrame) {
-        currentSelectedFrame = parentFrame;
-        const hierarchy = getFrameHierarchy(parentFrame);
-        figma.ui.postMessage({ type: 'selection-info', data: { name: parentFrame.name, hierarchy: hierarchy } });
-    } else {
-        currentSelectedFrame = null;
-        figma.notify('Selected element is not inside a Frame. Please select an element within a Frame or a Frame itself.', { error: true });
-        figma.ui.postMessage({ type: 'selection-info', data: { name: 'No Parent Frame', hierarchy: getFrameHierarchy(selectedNode) } });
-    }
+    currentSelection = selectedNode;
+    const hierarchy = getNodeHierarchy(selectedNode);
+    const preview = await getFramePreview(selectedNode);
+    
+    figma.ui.postMessage({ 
+      type: 'selection-info', 
+      data: { 
+        name: selectedNode.name, 
+        hierarchy: hierarchy,
+        preview: preview 
+      } 
+    });
 }
 
 async function createAnnotation(feedback: AnalysisResult, targetNode: SceneNode) {
@@ -300,48 +423,46 @@ async function createAnnotation(feedback: AnalysisResult, targetNode: SceneNode)
 
 figma.ui.onmessage = async (msg) => {
   if (msg.type === 'analyze') {
-    if (!currentSelectedFrame) {
-        figma.notify('No valid Frame selected for analysis.', { error: true });
+    if (!currentSelection) {
+        figma.notify('No element selected for analysis.', { error: true });
         return;
     }
     figma.notify('Starting analysis... This may take a moment.');
 
-    const componentData = extractComponentData(currentSelectedFrame);
+    const componentData = extractComponentData(currentSelection);
 
     try {
       const analysisResults = await analyzeComponentWithClaude(componentData, principlesPromptSegment);
 
-      // Send results back to UI, one by one or as a batch
       if (analysisResults && analysisResults.length > 0) {
-        // Send results one by one to populate cards incrementally
         analysisResults.forEach(result => {
              figma.ui.postMessage({ type: 'analysis-result', data: result });
         });
          figma.notify(`Analysis complete. ${analysisResults.length} suggestions found.`);
       } else {
          figma.notify('Analysis complete. No specific suggestions found.');
-         // Optionally send a message to UI to indicate no results
          figma.ui.postMessage({ type: 'analysis-no-results' });
       }
 
     } catch (error) {
       console.error('Analysis failed:', error);
-      // Notification is already handled in claude.ts for network errors
-      // figma.notify('Analysis failed. See console for details.', { error: true });
-       figma.ui.postMessage({ type: 'analysis-error', data: { message: error instanceof Error ? error.message : 'Unknown error' } });
+      figma.ui.postMessage({ 
+        type: 'analysis-error', 
+        data: { message: error instanceof Error ? error.message : 'Unknown error' } 
+      });
     }
   }
 
   if (msg.type === 'show-on-canvas') {
-    if (!currentSelectedFrame) {
-        figma.notify('Cannot place annotation, no Frame is selected.', { error: true });
+    if (!currentSelection) {
+        figma.notify('Cannot place annotation, no element is selected.', { error: true });
         return;
     }
     const feedback: AnalysisResult = msg.payload;
     console.log('Show on canvas requested', feedback);
 
     try {
-        const annotationNode = await createAnnotation(feedback, currentSelectedFrame);
+        const annotationNode = await createAnnotation(feedback, currentSelection);
         figma.viewport.scrollAndZoomIntoView([annotationNode]);
         figma.notify(`Annotation added for: ${feedback.heuristic}`);
     } catch (error) {
@@ -351,12 +472,8 @@ figma.ui.onmessage = async (msg) => {
   }
 
   if (msg.type === 'get-initial-selection') {
-    updateSelectionInfo(); // Send current selection info when UI loads
+    updateSelectionInfo();
   }
-
-  // Remove the old example logic if it exists
-  // if (msg.type === 'create-shapes') { ... }
-  // if (msg.type === 'cancel') { figma.closePlugin(); }
 };
 
 // --- Event Listeners ---
